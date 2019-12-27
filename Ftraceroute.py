@@ -6,23 +6,25 @@ import sys
 import debug as D
 
 ICMP_types = {
-    4 : 8,
-    6 : 128 }
+    4: 8,
+    6: 128}
 
 ICMP_sockets = {
-    4 : socket.AF_INET,
-    6 : socket.AF_INET6 }
+    4: socket.AF_INET,
+    6: socket.AF_INET6
+}
 
 packet_location_diapasons = {    # type 0 is when we find end host
-    0 : (20, 28),
-    8 : (48, 56) }
+    0: (20, 28),
+    8: (48, 56)
+}
 
 
 def calculate_checksum(source_string):
     checksum_packet = 0
     for count in range(0, (len(source_string) // 2) * 2, 2):
         checksum_packet += (
-                        source_string[count + 1])*256 + source_string[count]
+            source_string[count + 1])*256 + source_string[count]
     answer = ~checksum_packet
     answer = answer & 0xffff
     answer = answer >> 8 | (answer << 8 & 0xff00)
@@ -30,8 +32,8 @@ def calculate_checksum(source_string):
 
 
 def create_packet(packet_size=42, version=4):
-    # ICMP type 8, Echo request message:   
-    # ICMPv6 in https://tools.ietf.org/html/rfc4443#section-4.1 
+    # ICMP type 8, Echo request message:
+    # ICMPv6 in https://tools.ietf.org/html/rfc4443#section-4.1
     #
     # Type (8)	Code (8)	ICMP header checksum (16)  - 64 bit pack - 8 byte
     #   Identifier (16)	       Sequence number(16)
@@ -82,7 +84,7 @@ def form_response(host, ttl, packet_count=3, timeout=1, packet_size=42,
         if result[0]:
             hop_address = result[0]
             if debug:
-                print(D.get_parse_result(result))
+                packets += D.get_parse_result(result, ttl)
         else:
             hop_address = '-'
     return hop_address, response, packets
@@ -98,12 +100,13 @@ def main():
     parser.add_argument('-m',  help='max ttl(max hops)', default=30, type=int)
     parser.add_argument('-s', '--size', help='packet size',
                         default=42, type=int)
-    parser.add_argument('-r','--no_resolve', help='show result:'
-                                   ' without -r : name with IP,'
-                                   ' with -r : only IP', action='store_true')
-    parser.add_argument('-6', '--use_IPv6', help='use IPv6', action='store_true')                               
+    parser.add_argument('-r', '--no_resolve', help='show result:'
+                        ' without -r : name with IP,'
+                        ' with -r : only IP', action='store_true')
+    parser.add_argument('-6', '--use_IPv6',
+                        help='use IPv6', action='store_true')
     parser.add_argument('-d', '--debug', help='debug mode',
-                        action='store_true')                            
+                        action='store_true')
     parser.add_argument('site', help='trace to (name or IP of host)')
     args = parser.parse_args()
 
@@ -119,14 +122,14 @@ def main():
 
     for ttl in range(1, args.m + 1):
         response = form_response(host, ttl, args.number,
-                                    args.timeout, args.size,
-                                    version, args.debug)
+                                 args.timeout, args.size,
+                                 version, args.debug)
         address = response[0]
         if not args.no_resolve:
             try:
                 address = socket.gethostbyaddr(response[0])[0]
             except socket.error:
-                pass 
+                pass
         print('%-3d%-28s%-16s%-32s' % (ttl, address,
                                        response[0], response[1]))
         if args.debug:
