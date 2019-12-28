@@ -11,7 +11,6 @@
 	прописать в консоли : “ netsh advfirewall firewall add rule name="All ICMP v4" dir=in action=allow protocol=icmpv4:any,any” , чтобы можно было принимать ICMP ответы
 Состав
 	Консольная версия - Ftraceroute.py
-	Тесты - tests/ (в следующих версиях)
 Консольная версия
 	Для вывода справки введите: “python Ftraceroute.py /h” (windows)
 Детали реализации

@@ -30,7 +30,7 @@ Data: b'11111111'
             b'\xc0\xa8\x01\x05\x0b\x00\xf5\x00\x00\x00\x00\x00E\x00\x00' +\
             b'\x1cZ\x9f\x00\x00\x01\x01%\xcc\xc0\xa8\x01\x05\xd4\xc1' +\
             b'\xa3\x07\x08\x00\xf6\xfe\x00\x00\x01\x00'
-        self.assertEqual(packet_parse(pack)[0], '''
+        self.assertEqual(packet_parse(pack), '''
 Header length: 69
 Explicit Congestion Notification: 0
 Total length: 56

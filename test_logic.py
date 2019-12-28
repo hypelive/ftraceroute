@@ -6,12 +6,12 @@ import socket
 import time
 
 ICMP_types = {
-    4 : 8,
-    6 : 128 }
+    4: 8,
+    6: 128}
 
 ICMP_sockets = {    # need to tests without internet
-    4 : socket.AF_INET,
-    6 : socket.AF_INET6 }
+    4: socket.AF_INET,
+    6: socket.AF_INET6}
 
 
 class TestTraceroute(unittest.TestCase):
@@ -52,18 +52,20 @@ class TestTraceroute(unittest.TestCase):
         self.assertTrue(response)
         Traceroute.get_response = standart
 
-    @unittest.skip('123')
     def test_send_packet_with_max_ttl_v6(self):
+        if not socket.has_ipv6:
+            return
         host = '0:0:0:0:0:FFFF:5DBA:E1C1'
         response = Traceroute.send_packet(host, 50, version=6)
-        self.assertEqual(response[0], host) 
+        self.assertEqual(response[0][:7], '::ffff:')
 
     def test_response_without_send(self):
         with socket.socket(socket.AF_INET, socket.SOCK_RAW,
                            socket.getprotobyname('icmp')) as icmp_socket:
             icmp_socket.setsockopt(socket.SOL_IP, socket.IP_TTL, 1)
-            self.assertEqual((None, None, (None, None)), Traceroute.get_response(
-                              icmp_socket, time.time(), None))
+            self.assertEqual((None, None, (None, None)),
+                             Traceroute.get_response(icmp_socket,
+                                                     time.time(), None))
 
     def test_send_packet(self):
         get_response_mock = MagicMock(return_value=True)
@@ -73,8 +75,6 @@ class TestTraceroute(unittest.TestCase):
         for ttl in range(1, 31):
             try:
                 self.assertTrue(Traceroute.send_packet(host, ttl))
-            except socket.timeout:
-                continue
             except socket.error:
                 continue
         Traceroute.get_response = standart
@@ -82,7 +82,8 @@ class TestTraceroute(unittest.TestCase):
     def test_send_packets(self):
         send_packets_mock = MagicMock()
         host = socket.gethostbyname('google.com')
-        send_packets_mock.side_effect = [[('NonGoogle', None, None)], [(host, None, None)]]
+        send_packets_mock.side_effect = [
+            [('NonGoogle', None, None)], [(host, None, None)]]
         standart = Traceroute.form_response
         Traceroute.form_response = send_packets_mock
         response = Traceroute.form_response(host, 1)

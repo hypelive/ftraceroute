@@ -45,10 +45,14 @@ def create_packet(packet_size=42, version=4):
                        socket.htons(icmp_header_checksum), 0, 1) + data
 
 
-def get_response(icmp_socket, time_sent, sent_packet, timeout=1):
+def get_response(icmp_socket, time_sent, sent_packet, timeout=1, version=4):
     icmp_socket.settimeout(timeout)
     try:
-        receive_packet, (hop_address, _) = icmp_socket.recvfrom(1024)
+        response = icmp_socket.recvfrom(1024)
+        if version == 4:
+            receive_packet, (hop_address, _) = response
+        else:
+            receive_packet, (hop_address, _, _, _) = response
         total_time_ms = int((time.time() - time_sent) * 1000000) / 1000
     except socket.timeout:
         receive_packet = None
@@ -63,7 +67,8 @@ def send_packet(host, ttl, timeout=1, packet_size=42, version=4):
         icmp_socket.setsockopt(socket.SOL_IP, socket.IP_TTL, ttl)
         packet = create_packet(packet_size, version)
         icmp_socket.sendto(packet, (host, 0))
-        response = get_response(icmp_socket, time.time(), packet, timeout)
+        response = get_response(icmp_socket, time.time(),
+                                packet, timeout, version)
     return response
 
 
@@ -100,7 +105,7 @@ def main():
     parser.add_argument('-m',  help='max ttl(max hops)', default=30, type=int)
     parser.add_argument('-s', '--size', help='packet size',
                         default=42, type=int)
-    parser.add_argument('-r', '--no_resolve', help='show result:'
+    parser.add_argument('-r', '--no-resolve', help='show result:'
                         ' without -r : name with IP,'
                         ' with -r : only IP', action='store_true')
     parser.add_argument('-6', '--use_IPv6',

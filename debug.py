@@ -12,7 +12,8 @@ packet_parse_diapasons = {  # -14
     'Header checksum': (10, 12),
     'Source': (12, 16),
     'Destination': (16, 20),  # IP
-    # ICMP 11 duplicate packet that was send to hop               Data in 0 is after Header to end -10(Padding)
+    # ICMP 11 duplicate packet that was send to hop
+    # Data in 0 is after Header to end -10(Padding)
     'Header icmp': (20, 28)
     # 11 no Data    and  8 Data to end
 }
@@ -26,7 +27,7 @@ def packet_parse(packet):
      destination0, destination1, destination2, destination3,
      type_icmp, code_icmp, icmp_header_checksum, identifier,
      sequence_number) = struct.unpack('BBBBBBHBBHBBBBBBBBbbHHh',
-                                      packet[:28])     # header length is wrong
+                                      packet[:28])
     return f'''
 Header length: {header_length}
 Explicit Congestion Notification: {explicit_congestion_notification}
@@ -44,7 +45,7 @@ Checksum icmp: {icmp_header_checksum}
 Identifier: {identifier}
 Sequence number: {sequence_number}
 Data: {str(packet[28:]) if len(packet) > 28 else ''}
-''', type_icmp                # need to data
+'''
 
 
 def send_header_parse(header, ttl=255):
@@ -96,7 +97,7 @@ def get_parse_result(result, ttl=255):
     parse_result += f'''
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-{get_damp_packet(recieve_pack)}{recieve_pack_parse[0]}
+{get_damp_packet(recieve_pack)}{recieve_pack_parse}
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 '''
     return parse_result
