@@ -11,6 +11,7 @@ class ICMP:
     PACK_TYPE = None
     ID_ALIVE = None
     ID_DEAD = None
+    UNDEFINED_ADDRESS_SYMBOL = '*'
 
     def __init__(self, host, number=3,
                  timeout=1, size=42, debug=False):
@@ -99,7 +100,7 @@ class ICMP:
                 if self.debug:
                     packets += D.get_parse_result(result, ttl)
             else:
-                hop_address = '-'
+                hop_address = self.UNDEFINED_ADDRESS_SYMBOL
         return hop_address, response, packets
 
     def deconstruct_response(self, response):
