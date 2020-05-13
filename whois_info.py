@@ -2,6 +2,10 @@ import socket
 import sys
 
 HOST = 'whois.ripe.net'
+#HOST = 'whois.arin.net'
+#HOST = 'whois.apnic.net'
+#HOST = 'whois.lacnic.net'
+#HOST = 'whois.afrinic.net'
 PORT = 43
 
 class WhoisInfo:
@@ -21,9 +25,12 @@ class WhoisInfo:
         result = []
         data = ' '
         while data:
-            data = s.recv(1024).decode(encoding='utf8', errors='ignore')
+            try:
+                data = s.recv(1024).decode(encoding='utf8', errors='ignore')
+            except socket.timeout:
+                break
             for line in data.split('\n'):
-                if line.startswith('%') or line.strip() == '':
+                if line.startswith('%') or line.startswith('#') or line.strip() == '':
                     continue
                 result.append(line)
         return result      
