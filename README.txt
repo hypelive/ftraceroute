@@ -12,6 +12,6 @@
 Состав
 	Консольная версия - Ftraceroute.py
 Консольная версия
-	Для вывода справки введите: “python Ftraceroute.py /h” (windows)
+	Для вывода справки введите: Ftraceroute.py -h
 Детали реализации
 	soon

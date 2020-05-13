@@ -1,93 +1,97 @@
-import Ftraceroute as Traceroute
+from icmp import ICMP
+from icmp4 import ICMPv4
+from icmp6 import ICMPv6
 import unittest
 from unittest.mock import MagicMock
 import struct
 import socket
 import time
 
-ICMP_types = {
-    4: 8,
-    6: 128}
-
-ICMP_sockets = {    # need to tests without internet
-    4: socket.AF_INET,
-    6: socket.AF_INET6}
-
 
 class TestTraceroute(unittest.TestCase):
     def test_checksum(self):
-        header = struct.pack('BbHHh', ICMP_types[4], 0, 0, 0, 1)
+        header = struct.pack('BbHHh', ICMPv4.TYPE, 0, 0, 0, 1)
         data = b''
-        checksum = Traceroute.calculate_checksum(header + data)
+        checksum = ICMP.calculate_checksum(header + data)
         self.assertEqual(checksum, int(0xf6ff))
-        header = struct.pack('BbHHh', ICMP_types[6], 0, 0, 0, 1)
+        header = struct.pack('BbHHh', ICMPv6.TYPE, 0, 0, 0, 1)
         data = b''
-        checksum = Traceroute.calculate_checksum(header + data)
+        checksum = ICMP.calculate_checksum(header + data)
         self.assertEqual(checksum, 32511)
-        header = struct.pack('BbHHh', ICMP_types[4], 0, 0, 0, 1)
+        header = struct.pack('BbHHh', ICMPv4.TYPE, 0, 0, 0, 1)
         data = b'11111111'
-        checksum = Traceroute.calculate_checksum(header + data)
+        checksum = ICMP.calculate_checksum(header + data)
         self.assertEqual(checksum, int(0x323b))
 
     def test_create_pack(self):
-        pack = Traceroute.create_packet()
+        icmpv4 = ICMPv4('')
+        pack = icmpv4.create_packet()
         self.assertEqual(b'\x08\x00\xf6\xff\x00\x00\x01\x00', pack)
-        pack = Traceroute.create_packet(50)
+        icmpv4 = ICMPv4('', size=50)
+        pack = icmpv4.create_packet()
         self.assertEqual(b'\x08\x00\x32\x3b\x00\x00\x01\x0011111111', pack)
-        pack = Traceroute.create_packet(version=6)
+        icmpv6 = ICMPv6('')
+        pack = icmpv6.create_packet()
         self.assertEqual(b'\x80\x00~\xff\x00\x00\x01\x00', pack)
 
     def test_send_packet_with_max_ttl_v4(self):
         get_response_mock = MagicMock(return_value=True)
-        standart = Traceroute.get_response
-        Traceroute.get_response = get_response_mock
-        host = socket.gethostbyname('e1.ru')
-        response = Traceroute.send_packet(host, 50)
+        icmpv4 = ICMPv4('212.193.163.7')
+        standart = ICMPv4.get_response
+        ICMPv4.get_response = get_response_mock
+        response = icmpv4.send_packet(50)
         self.assertTrue(response)
-        host = socket.gethostbyname('google.com')
-        response = Traceroute.send_packet(host, 50)
+        icmpv4 = ICMPv4('173.194.73.138')
+        response = icmpv4.send_packet(50)
         self.assertTrue(response)
-        host = socket.gethostbyname('ru.wikipedia.org')
-        response = Traceroute.send_packet(host, 50)
+        icmpv4 = ICMPv4('91.198.174.192')
+        response = icmpv4.send_packet(50)
         self.assertTrue(response)
-        Traceroute.get_response = standart
+        ICMPv4.get_response = standart
 
+    @unittest.skipUnless(socket.has_ipv6, 'Protocol is not available')
     def test_send_packet_with_max_ttl_v6(self):
-        if not socket.has_ipv6:
-            return
-        host = '0:0:0:0:0:FFFF:5DBA:E1C1'
-        response = Traceroute.send_packet(host, 50, version=6)
-        self.assertEqual(response[0][:7], '::ffff:')
+        icmpv6 = ICMPv6('0:0:0:0:0:FFFF:5DBA:E1C1')
+        standart = ICMPv6.get_response
+        ICMPv6.get_response = MagicMock(return_value=True)
+        try:
+            response = icmpv6.send_packet(50)
+        except OSError:
+            self.skipTest('Protocol is not available')
+        self.assertTrue(response)
+        ICMPv6.get_response = standart
 
     def test_response_without_send(self):
         with socket.socket(socket.AF_INET, socket.SOCK_RAW,
                            socket.getprotobyname('icmp')) as icmp_socket:
+            icmpv4 = ICMPv4('')
             icmp_socket.setsockopt(socket.SOL_IP, socket.IP_TTL, 1)
             self.assertEqual((None, None, (None, None)),
-                             Traceroute.get_response(icmp_socket,
-                                                     time.time(), None))
+                             icmpv4.get_response(icmp_socket,
+                                                 time.time(), None, 1))
 
     def test_send_packet(self):
         get_response_mock = MagicMock(return_value=True)
-        standart = Traceroute.get_response
-        Traceroute.get_response = get_response_mock
-        host = socket.gethostbyname('google.com')
+        standart = ICMPv4.get_response
+        ICMPv4.get_response = get_response_mock
+        icmpv4 = ICMPv4('173.194.73.138')
         for ttl in range(1, 31):
             try:
-                self.assertTrue(Traceroute.send_packet(host, ttl))
+                self.assertTrue(icmpv4.send_packet(ttl))
             except socket.error:
                 continue
-        Traceroute.get_response = standart
+        ICMPv4.get_response = standart
 
     def test_send_packets(self):
         send_packets_mock = MagicMock()
-        host = socket.gethostbyname('google.com')
+        host = '173.194.73.138'
+        icmpv4 = ICMPv4('173.194.73.138')
         send_packets_mock.side_effect = [
             [('NonGoogle', None, None)], [(host, None, None)]]
-        standart = Traceroute.form_response
-        Traceroute.form_response = send_packets_mock
-        response = Traceroute.form_response(host, 1)
+        standart = ICMPv4.form_response
+        ICMPv4.form_response = send_packets_mock
+        response = icmpv4.form_response(1)
         self.assertNotEqual(response[0][0], host)
-        response = Traceroute.form_response(host, 50)
+        response = icmpv4.form_response(50)
         self.assertEqual(response[0][0], host)
-        Traceroute.form_response = standart
+        ICMPv4.form_response = standart

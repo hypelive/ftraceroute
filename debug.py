@@ -1,87 +1,108 @@
 import struct
+from collections import namedtuple
 
-packet_parse_diapasons = {  # -14
-    # packet parsing will be define from type of ICMP
-    'Header length': (0, 1),
-    'Explicit Congestion Notification': (1, 2),
-    'Total length': (2, 4),
-    'IP Identification': (4, 6),
-    'Fragment offset': (6, 8),      # 'bBhHHBBHBBBBBBBBbbHHh'
-    'Time to live': (8, 9),
-    'Protocol': (9, 10),
-    'Header checksum': (10, 12),
-    'Source': (12, 16),
-    'Destination': (16, 20),  # IP
-    # ICMP 11 duplicate packet that was send to hop
-    # Data in 0 is after Header to end -10(Padding)
-    'Header icmp': (20, 28)
-    # 11 no Data    and  8 Data to end
+
+recive_packet_info = namedtuple(
+    'Packet_info',
+    ['header_length',
+     'explicit_notification',
+     'total_length',
+     'ip_identification',
+     'fragment_offset',
+     'time_to_live',
+     'protocol',
+     'header_checksum',
+     'source',
+     'destination',
+     'header_info'])
+
+send_header_info = namedtuple(
+    'Header_info',
+    ['type_icmp',
+     'code_icmp',
+     'icmp_checksum',
+     'identifier',
+     'sequence']
+)
+
+HEADER_LENGTH = {
+    5: 20
 }
 
 
 def packet_parse(packet):
-    (header_length, explicit_congestion_notification, total_length0,
-     total_length1, ip_identification0,
-     ip_identification1, fragment_offset, time_to_live, protocol,
-     header_checksum, source0, source1, source2, source3,
-     destination0, destination1, destination2, destination3,
-     type_icmp, code_icmp, icmp_header_checksum, identifier,
-     sequence_number) = struct.unpack('BBBBBBHBBHBBBBBBBBbbHHh',
-                                      packet[:28])
+    info = get_packet_info(packet)
     return f'''
-Header length: {header_length}
-Explicit Congestion Notification: {explicit_congestion_notification}
-Total length: {total_length0*16 + total_length1}
-IP Identification: {ip_identification0*16 + ip_identification1}
-Fragment offset: {fragment_offset}
-Time to live: {time_to_live}
-Protocol: {protocol}
-Checksum ip: {header_checksum}
-Source: {source0}.{source1}.{source2}.{source3}
-Destination: {destination0}.{destination1}.{destination2}.{destination3}
-Version icmp: {type_icmp}
-Code icmp: {code_icmp}
-Checksum icmp: {icmp_header_checksum}
-Identifier: {identifier}
-Sequence number: {sequence_number}
+Version: {int(bin(info.header_length)[2:-4], 2)}
+Header length: {HEADER_LENGTH[int(bin(info.header_length)[-4:], 2)]}
+Explicit Congestion Notification: {info.explicit_notification}
+Total length: {info.total_length}
+IP Identification: {info.ip_identification}
+Fragment offset: {info.fragment_offset}
+Time to live: {info.time_to_live}
+Protocol ICMP: {info.protocol}
+Checksum ip: {info.header_checksum}
+Source: {get_ip_address(info.source)}
+Destination: {get_ip_address(info.destination)}
+Version icmp: {info.header_info.type_icmp}
+Code icmp: {info.header_info.code_icmp}
+Checksum icmp: {info.header_info.icmp_checksum}
+Identifier: {info.header_info.identifier}
+Sequence number: {info.header_info.sequence}
 Data: {str(packet[28:]) if len(packet) > 28 else ''}
 '''
 
 
-def send_header_parse(header, ttl=255):
-    (type_icmp, code_icmp, icmp_header_checksum, identifier,
-     sequence_number) = struct.unpack('bbHHh', header[:8])
+def get_packet_info(packet):
+
+    return recive_packet_info._make([*struct.unpack(
+        '!BBHHHBBHII',
+        packet[:20]),
+        get_header_info(packet[20:28])])
+
+
+def get_ip_address(value):
+    return (f'{value // 2**24}.{(value % 2**24) // 2**16}.' +
+            f'{(value % 2**16) // 256}.{value % 256}')
+
+
+def icmp_header_parse(header, ttl=255):
+    info = get_header_info(header[:8])
     return f'''
 TTL: {ttl}
-Version icmp: {type_icmp}
-Code icmp: {code_icmp}
-Checksum icmp: {icmp_header_checksum}
-Identifier: {identifier}
-Sequence number: {sequence_number}
+Version icmp: {info.type_icmp}
+Code icmp: {info.code_icmp}
+Checksum icmp: {info.icmp_checksum}
+Identifier: {info.identifier}
+Sequence number: {info.sequence}
 Data: {str(header[8:]) if len(header) > 8 else ''}
 '''
+
+
+def get_header_info(header):
+    return send_header_info._make(struct.unpack('bbHHh', header[:8]))
 
 
 def get_damp_packet(packet):
     packet_length = len(packet)
     print_border = 0
-    damp = ''
+    damp = []
     while print_border < packet_length:
         numeric = hex(print_border)[2:]
-        damp += '0'*(4 - len(numeric)) + numeric + '  '
-        byte_str = ''
-        ascii_str = ''
+        bytes_repr = []
+        ascii_repr = []
         for i in range(print_border, print_border + 16):
             temp = packet[i: i + 1].hex()
-            byte_str += (temp or '  ') + ' '
-            if temp == '0a':
-                ascii_str += ' '
+            bytes_repr.append(temp or '  ')
+            if temp == '0a' or temp == '0d' or temp == '0c' or temp == '0b':
+                ascii_repr.append(' ')
                 continue
             if temp != '':
-                ascii_str += chr(int(temp, 16))
-        damp += byte_str + ' ' + ascii_str + '\n'
+                ascii_repr.append(chr(int(temp, 16)))
+        damp.append('0'*(4 - len(numeric)) + numeric + '  ' +
+                    ' '.join(bytes_repr) + ' ' + ''.join(ascii_repr))
         print_border += 16
-    return damp
+    return '\n'.join(damp)
 
 
 def get_parse_result(result, ttl=255):
@@ -90,13 +111,11 @@ def get_parse_result(result, ttl=255):
     recieve_pack_parse = packet_parse(recieve_pack)
     parse_result += f'''
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-{get_damp_packet(result[2][0])}{send_header_parse(result[2][0], ttl)}
+{get_damp_packet(result[2][0])}{icmp_header_parse(result[2][0], ttl)}
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 '''
     parse_result += f'''
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
 {get_damp_packet(recieve_pack)}{recieve_pack_parse}
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 '''
