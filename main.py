@@ -17,11 +17,14 @@ def print_result_default(ttl, address, response, whois_info= None):
 
 
 def print_result_whois(ttl, address, response, whois_info: WhoisInfo):
+    if not whois_info:
+        print(f'{ttl}. {address}\r\n')
+        return
     as_number = whois_info.get_property("origin")
     if as_number and as_number.startswith('AS'):
         as_number = as_number[2:]
     country = whois_info.get_property("country")
-    if country and country.startswith('EU'):
+    if country and len(country) > 2:
         country = None
     whois_result = ", ".join(filter(lambda param: param, [whois_info.get_property("netname"), as_number, country]))
     if is_local(response[0]):
@@ -29,6 +32,7 @@ def print_result_whois(ttl, address, response, whois_info: WhoisInfo):
     if whois_result:
         whois_result += '\r\n'
     print(f'{ttl}. {address}\r\n{whois_result}')
+    #print(f'{ttl}. {response[0]}\r\n{whois_info.__dict__}')
 
 
 def is_local(address: str) -> bool:
@@ -77,7 +81,7 @@ def main():
 
     print_function = print_result_whois
     if args.classic:
-        WhoisInfo.TIMEOUT = args.timeout
+        WhoisInfo.TIMEOUT = args.timeout / 2
         print_function = print_result_default 
 
     print('-' * len(title) + '-')
@@ -96,7 +100,7 @@ def main():
             except socket.error:
                 pass
         whois_info = None
-        if not args.classic and response[1] != icmp_sender.UNDEFINED_ADDRESS_SYMBOL:
+        if not args.classic and response[0] != icmp_sender.UNDEFINED_ADDRESS_SYMBOL:
             whois_info = WhoisInfo(address)
         print_function(ttl, address, response, whois_info)
         if args.debug:
