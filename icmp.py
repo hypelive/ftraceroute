@@ -4,6 +4,9 @@ import time
 import struct
 import random
 
+class PacketSendException(Exception):
+    def __init__(self, e):
+        super().__init__(e)
 
 class ICMP:
     AF = None
@@ -80,7 +83,10 @@ class ICMP:
             icmp_socket.setsockopt(socket.SOL_IP, socket.IP_TTL, ttl)
             send_identifier = random.randint(0, 30000)
             packet = self.create_packet(send_identifier)
-            icmp_socket.sendto(packet, (self.host, 0))
+            try:
+                icmp_socket.sendto(packet, (self.host, 0))
+            except (socket.error, OSError) as e:
+                raise PacketSendException(e)
             response = self.get_response(icmp_socket, time.time(), packet,
                                          send_identifier)
         return response

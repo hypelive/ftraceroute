@@ -2,6 +2,7 @@ import socket
 import argparse
 import sys
 import debug as D
+from icmp import PacketSendException
 from icmp4 import ICMPv4
 from icmp6 import ICMPv6
 from whois_info import WhoisInfo
@@ -69,10 +70,10 @@ def main():
     try:
         host = socket.gethostbyname(args.site)
     except PermissionError:
-        print('not enough permissions')
+        sys.stderr.writelines('not enough permissions\n')
         exit(1)
-    except socket.error:
-        print(f'{host} is invalid')
+    except (socket.error, OSError):
+        sys.stderr.writelines(f'{args.site} is invalid\n')
         exit(1)
     title = f' trace to {args.site}({host}), max hops = {args.m}'
     version = 4
@@ -92,9 +93,13 @@ def main():
         host, args.number, args.timeout, args.size, args.debug)
 
     for ttl in range(1, args.m + 1):
-        response = icmp_sender.form_response(ttl)
+        try:
+            response = icmp_sender.form_response(ttl)
+        except PacketSendException:
+            sys.stderr.writelines(f'impossible to send packets to {args.site}\n')
+            exit(1)
         address = response[0]
-        if not args.no_resolve:
+        if not args.no_resolve and args.classic:
             try:
                 address = socket.gethostbyaddr(response[0])[0]
             except socket.error:
